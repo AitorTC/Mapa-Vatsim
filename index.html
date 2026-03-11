@@ -2,51 +2,30 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Aitor Radar Vatsim</title>
+    <title>Mapa Vatsim Aitor</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
     <style>
-        :root { 
-            --vatsim-blue: #2c88ff; 
-            --panel-bg: rgba(13, 17, 23, 0.95); 
-            --border: #30363d; 
-            --atc-ctr: #b142f5; 
-            --atc-app: #ff3333; 
-        }
+        :root { --vatsim-blue: #2c88ff; --panel-bg: rgba(13, 17, 23, 0.95); --border: #30363d; --atc-ctr: #b142f5; --atc-app: #ff3333; }
         body, html { margin: 0; padding: 0; width: 100vw; height: 100vh; background: #000; overflow: hidden; font-family: 'Segoe UI', sans-serif; color: white; }
         #map { width: 100vw; height: 100vh; }
 
-        /* Panel Lateral Unificado (Izquierda) */
-        #info-panel {
-            position: absolute; top: 20px; left: 20px; width: 340px; max-height: 90vh; overflow-y: auto;
-            background: var(--panel-bg); border: 1px solid var(--border); border-radius: 12px;
-            z-index: 2000; padding: 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.8); backdrop-filter: blur(10px);
-            display: none;
-        }
-
-        /* NUEVO: Panel de Estadísticas (Derecha) */
-        #stats-panel {
-            position: absolute; top: 20px; right: 20px; background: var(--panel-bg);
-            border: 1px solid var(--border); border-radius: 12px; z-index: 2000;
-            padding: 15px 25px; display: flex; gap: 25px; box-shadow: 0 8px 32px rgba(0,0,0,0.8);
-            backdrop-filter: blur(10px); font-family: monospace;
-        }
+        /* PANELES SUPERIORES */
+        #info-panel { position: absolute; top: 20px; left: 20px; width: 340px; max-height: 90vh; overflow-y: auto; background: var(--panel-bg); border: 1px solid var(--border); border-radius: 12px; z-index: 2000; padding: 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.8); backdrop-filter: blur(10px); display: none; }
+        #stats-panel { position: absolute; top: 20px; right: 20px; background: var(--panel-bg); border: 1px solid var(--border); border-radius: 12px; z-index: 2000; padding: 15px 25px; display: flex; gap: 25px; box-shadow: 0 8px 32px rgba(0,0,0,0.8); backdrop-filter: blur(10px); font-family: monospace; }
         
         .stat-item { display: flex; flex-direction: column; align-items: center; justify-content: center; }
         .stat-label { font-size: 11px; color: #8b949e; text-transform: uppercase; margin-bottom: 3px; font-family: 'Segoe UI', sans-serif;}
         .stat-value { font-size: 18px; font-weight: bold; color: white; }
-        .stat-value.cyan { color: #00ffcc; }
-        .stat-value.orange { color: #ff9800; }
-        .stat-value.blue { color: var(--vatsim-blue); }
+        .stat-value.cyan { color: #00ffcc; } .stat-value.orange { color: #ff9800; } .stat-value.blue { color: var(--vatsim-blue); }
 
-        /* Cartel de Carga */
-        #loading-ui {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: var(--panel-bg); border: 1px solid var(--vatsim-blue); padding: 20px 40px;
-            border-radius: 8px; font-weight: bold; color: var(--vatsim-blue); z-index: 3000;
-        }
+        /* BOTÓN AIRAC INFERIOR */
+        #map-controls { position: absolute; bottom: 30px; right: 20px; z-index: 2000; }
+        .btn-map { background: var(--panel-bg); border: 1px solid var(--vatsim-blue); color: white; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.7); transition: 0.2s; }
+        .btn-map:hover { background: var(--vatsim-blue); color: black; }
 
+        #loading-ui { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--panel-bg); border: 1px solid var(--vatsim-blue); padding: 20px 40px; border-radius: 8px; font-weight: bold; color: var(--vatsim-blue); z-index: 3000; }
         .close-btn { position: absolute; top: 15px; right: 15px; background: none; border: none; color: white; font-size: 18px; cursor: pointer; }
         .title { font-size: 22px; font-weight: bold; color: var(--vatsim-blue); margin: 0 0 5px 0; }
         .subtitle { color: #8b949e; font-size: 13px; margin-bottom: 15px; }
@@ -54,53 +33,39 @@
         .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
         .data-box { background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; border: 1px solid var(--border); }
         .data-label { font-size: 10px; color: #8b949e; text-transform: uppercase; }
-        .data-value { font-size: 15px; font-weight: bold; font-family: monospace; }
+        .data-value { font-size: 14px; font-weight: bold; font-family: monospace; }
         .route-box { background: rgba(0,0,0,0.5); padding: 10px; border-radius: 6px; font-family: monospace; font-size: 11px; color: #aaa; margin-bottom: 15px; word-wrap: break-word; }
-
         .flight-list-item { border-bottom: 1px solid var(--border); padding: 8px 0; display: flex; justify-content: space-between; font-size: 12px; align-items: center;}
         .flight-list-item:last-child { border: none; }
-        .text-cyan { color: #00ffcc; font-weight: bold; font-family: monospace; } 
-        .text-orange { color: #ffaa00; font-family: monospace; }
+        .text-cyan { color: #00ffcc; font-weight: bold; font-family: monospace; } .text-orange { color: #ffaa00; font-family: monospace; }
 
-        /* Iconos de Aviones y Auto-Zoom */
         .aircraft-label { background: none; border: none; color: white; font-size: 11px; font-family: monospace; font-weight: bold; text-shadow: 1px 1px 2px #000; transition: opacity 0.2s; }
         .low-zoom .aircraft-label { display: none !important; }
-        .airport-icon { background: rgba(0,0,0,0.7); border: 1px solid #555; border-radius: 50%; width: 12px; height: 12px; cursor: pointer; }
-        .airport-icon:hover { border-color: var(--vatsim-blue); background: var(--vatsim-blue); }
         
-        /* Etiquetas de Controladores ATC (SIEMPRE VISIBLES) */
+        .airport-label-icon { background: rgba(0, 0, 0, 0.85); border: 1px solid var(--vatsim-blue); color: white; border-radius: 4px; font-size: 11px; font-family: monospace; text-align: center; line-height: 16px; cursor: pointer; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.5); transition: 0.2s; }
+        .airport-label-icon:hover { background: var(--vatsim-blue); color: black; transform: scale(1.1); }
+        
         .atc-tag { background: rgba(0,0,0,0.85); border: 1px solid var(--vatsim-blue); color: white; padding: 4px; border-radius: 4px; font-family: monospace; font-size: 10px; text-align: center; line-height: 1.3; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
         .atc-fir-tag { background: rgba(0,0,0,0.85); border: 1px solid var(--atc-ctr); color: var(--atc-ctr); padding: 4px; border-radius: 4px; font-family: monospace; font-size: 11px; text-align: center; line-height: 1.3; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
-        
-        /* Colores Específicos de Frecuencias */
         .atc-del { color: #a371f7; background: rgba(163, 113, 247, 0.1); padding: 1px 4px; border-radius: 3px; font-weight: bold; } 
         .atc-gnd { color: #3fb950; background: rgba(63, 185, 80, 0.1); padding: 1px 4px; border-radius: 3px; font-weight: bold; } 
         .atc-twr { color: #ff9800; background: rgba(255, 152, 0, 0.1); padding: 1px 4px; border-radius: 3px; font-weight: bold; } 
         .atc-app { color: var(--atc-app); background: rgba(255, 51, 51, 0.1); padding: 1px 4px; border-radius: 3px; font-weight: bold; } 
-        .atc-ctr { color: var(--atc-ctr); background: rgba(177, 66, 245, 0.1); padding: 1px 4px; border-radius: 3px; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <div id="loading-ui">Iniciando V-Radar (Descargando bases de datos mundiales)...</div>
+    <div id="loading-ui">Iniciando Mapa Vatsim Aitor...</div>
     
     <div id="stats-panel">
-        <div class="stat-item">
-            <div class="stat-label">Hora Zulu</div>
-            <div class="stat-value blue" id="stat-time">00:00:00</div>
-        </div>
-        <div class="stat-item">
-            <div class="stat-label">Pilotos</div>
-            <div class="stat-value cyan" id="stat-pilots">--</div>
-        </div>
-        <div class="stat-item">
-            <div class="stat-label">ATC Activos</div>
-            <div class="stat-value orange" id="stat-atc">--</div>
-        </div>
-        <div class="stat-item">
-            <div class="stat-label">Conexiones</div>
-            <div class="stat-value" id="stat-conn">--</div>
-        </div>
+        <div class="stat-item"><div class="stat-label">Hora Zulu</div><div class="stat-value blue" id="stat-time">00:00:00</div></div>
+        <div class="stat-item"><div class="stat-label">Pilotos</div><div class="stat-value cyan" id="stat-pilots">--</div></div>
+        <div class="stat-item"><div class="stat-label">ATC Activos</div><div class="stat-value orange" id="stat-atc">--</div></div>
+        <div class="stat-item"><div class="stat-label">Conexiones</div><div class="stat-value" id="stat-conn">--</div></div>
+    </div>
+
+    <div id="map-controls">
+        <button class="btn-map" id="btn-airac" onclick="toggleAirac()">🗺️ Mostrar Waypoints AIRAC</button>
     </div>
 
     <div id="map"></div>
@@ -111,24 +76,37 @@
     </div>
 
     <script>
-        const APP_BOUNDARIES_URL = "https://raw.githubusercontent.com/usuario/mi-repositorio/main/boundariesAPP.json"; 
-
-        // --- 1. CONFIGURACIÓN DEL MAPA ---
         const map = L.map('map', { center: [40.41, -3.70], zoom: 5, zoomControl: false });
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png').addTo(map);
 
-        // --- SISTEMA DE CAPAS ESTRICTO (Z-INDEX) ---
+        // CAPA AIRAC (OPENAIP)
+        let airacLayer = L.tileLayer('https://{s}.tile.maps.openaip.net/geowebcache/service/tms/1.0.0/openaip_basemap@EPSG%3A900913@png/{z}/{x}/{y}.png', {
+            tms: true, opacity: 0.5, maxZoom: 14
+        });
+        let airacActive = false;
+
+        function toggleAirac() {
+            if (airacActive) {
+                map.removeLayer(airacLayer);
+                document.getElementById('btn-airac').innerText = "🗺️ Mostrar Waypoints AIRAC";
+                airacActive = false;
+            } else {
+                map.addLayer(airacLayer);
+                document.getElementById('btn-airac').innerText = "🗺️ Ocultar Waypoints AIRAC";
+                airacActive = true;
+            }
+        }
+
         map.createPane('ctrPane'); map.getPane('ctrPane').style.zIndex = 390;
         map.createPane('appPane'); map.getPane('appPane').style.zIndex = 400;
         map.createPane('atcPane'); map.getPane('atcPane').style.zIndex = 1000;
 
         const ZOOM_THRESHOLD = 7;
-        function handleZoom() {
+        map.on('zoomend', () => {
             if (map.getZoom() < ZOOM_THRESHOLD) document.getElementById('map').classList.add('low-zoom');
             else document.getElementById('map').classList.remove('low-zoom');
-        }
-        map.on('zoomend', handleZoom);
-        handleZoom(); 
+        });
+        if (map.getZoom() < ZOOM_THRESHOLD) document.getElementById('map').classList.add('low-zoom');
 
         const firLayer = L.layerGroup().addTo(map);
         const airportLayer = L.layerGroup().addTo(map);
@@ -137,48 +115,31 @@
 
         let airportsDB = {};
         let boundariesDB = null;
-        let boundariesAPP = null; 
         let flightsData = [];
         let markers = {};
         let currentATC = {}; 
+        
+        // --- MEMORIA DE RUTA REAL (TRACK HISTORY) ---
+        let historyCoords = {}; 
 
-        // --- RELOJ ZULU ---
         setInterval(() => {
-            const now = new Date();
-            document.getElementById('stat-time').innerText = now.toISOString().substring(11, 19) + 'Z';
+            document.getElementById('stat-time').innerText = new Date().toISOString().substring(11, 19) + 'Z';
         }, 1000);
 
-        // --- 2. CARGA A PRUEBA DE FALLOS ---
         async function loadStaticData() {
-            try {
-                const aptRes = await fetch('https://raw.githubusercontent.com/mwgg/Airports/master/airports.json');
-                if (aptRes.ok) airportsDB = await aptRes.json();
-            } catch (e) { console.warn("Aviso: Aeropuertos no disponibles."); }
-            
-            try {
-                const bndRes = await fetch('https://raw.githubusercontent.com/vatsimnetwork/vatspy-data-project/master/Boundaries.geojson');
-                if (bndRes.ok) boundariesDB = await bndRes.json();
-            } catch (e) { console.warn("Aviso: Fronteras FIR no disponibles."); }
-
-            try {
-                const appRes = await fetch(APP_BOUNDARIES_URL);
-                if (appRes.ok) boundariesAPP = await appRes.json();
-            } catch (e) {}
-            
+            try { const aptRes = await fetch('https://raw.githubusercontent.com/mwgg/Airports/master/airports.json'); if (aptRes.ok) airportsDB = await aptRes.json(); } catch (e) {}
+            try { const bndRes = await fetch('https://raw.githubusercontent.com/vatsimnetwork/vatspy-data-project/master/Boundaries.geojson'); if (bndRes.ok) boundariesDB = await bndRes.json(); } catch (e) {}
             document.getElementById('loading-ui').style.display = 'none';
-
             updateRadar(); 
             setInterval(updateRadar, 15000);
         }
 
-        // --- 3. LÓGICA DEL RADAR ---
         async function updateRadar() {
             try {
                 const res = await fetch('https://data.vatsim.net/v3/vatsim-data.json');
                 if (!res.ok) return; 
                 const data = await res.json();
                 
-                // ACTUALIZAR ESTADÍSTICAS
                 document.getElementById('stat-pilots').innerText = data.pilots.length;
                 document.getElementById('stat-atc').innerText = data.controllers.length;
                 document.getElementById('stat-conn').innerText = data.general.unique_users;
@@ -186,85 +147,64 @@
                 flightsData = data.pilots;
                 processATC(data.controllers);
                 processPilots(data.pilots);
-            } catch (e) { console.warn("Fallo temporal de conexión con VATSIM."); }
+            } catch (e) {}
         }
 
-        // --- 4. PROCESAR CONTROLADORES ---
         function processATC(controllers) {
             firLayer.clearLayers();
             currentATC = {}; 
             const appDrawn = new Set(); 
-
             controllers.forEach(c => {
                 if (c.callsign.includes('OBS') || c.callsign.includes('ATIS')) return;
-
-                const parts = c.callsign.split('_');
-                const prefix = parts[0];
-                const suffix = parts[parts.length - 1];
-
+                const parts = c.callsign.split('_'); const prefix = parts[0]; const suffix = parts[parts.length - 1];
                 if ((suffix === 'CTR' || suffix === 'FSS') && boundariesDB) {
                     const feature = boundariesDB.features.find(f => f.properties.id === prefix);
                     if (feature) {
                         const geoLayer = L.geoJSON(feature, { style: { color: '#b142f5', weight: 2, fillOpacity: 0.05, dashArray: '5,5' }, pane: 'ctrPane' }).addTo(firLayer);
-                        const center = geoLayer.getBounds().getCenter();
-                        L.marker(center, { icon: L.divIcon({ className: 'atc-fir-tag', html: `<b>${c.callsign}</b><br>${c.frequency}`, iconSize: [90, 'auto'] }), pane: 'atcPane' }).addTo(firLayer);
+                        L.marker(geoLayer.getBounds().getCenter(), { icon: L.divIcon({ className: 'atc-fir-tag', html: `<b>${c.callsign}</b><br>${c.frequency}`, iconSize: [90, 'auto'] }), pane: 'atcPane' }).addTo(firLayer);
                     }
-                } 
-                else if (['DEL', 'GND', 'TWR', 'APP'].includes(suffix)) {
+                } else if (['DEL', 'GND', 'TWR', 'APP'].includes(suffix)) {
                     if (!currentATC[prefix]) currentATC[prefix] = [];
                     currentATC[prefix].push({ type: suffix, freq: c.frequency, callsign: c.callsign }); 
-                    
-                    if (suffix === 'APP' && !appDrawn.has(prefix)) {
+                    if (suffix === 'APP' && !appDrawn.has(prefix) && airportsDB[prefix]) {
                         appDrawn.add(prefix);
-                        let shapeDrawn = false;
-
-                        if (boundariesAPP) {
-                            const feature = boundariesAPP.features.find(f => f.properties.id === prefix || f.properties.name === prefix);
-                            if (feature) {
-                                L.geoJSON(feature, { style: { color: '#ff3333', weight: 2, fillOpacity: 0.08, dashArray: '5,5' }, pane: 'appPane' }).addTo(firLayer);
-                                shapeDrawn = true;
-                            }
-                        }
-
-                        if (!shapeDrawn && airportsDB[prefix]) {
-                            const coords = [airportsDB[prefix].lat, airportsDB[prefix].lon];
-                            L.circle(coords, { radius: 40 * 1852, color: '#ff3333', weight: 2, fillOpacity: 0.08, dashArray: '5,5', pane: 'appPane' }).addTo(firLayer);
-                        }
+                        L.circle([airportsDB[prefix].lat, airportsDB[prefix].lon], { radius: 40 * 1852, color: '#ff3333', weight: 2, fillOpacity: 0.08, dashArray: '5,5', pane: 'appPane' }).addTo(firLayer);
                     }
                 }
             });
-
             Object.keys(currentATC).forEach(icao => {
                 if (airportsDB[icao]) {
-                    const coords = [airportsDB[icao].lat, airportsDB[icao].lon];
                     let html = `<b>${icao}</b><br>`;
                     const order = { 'DEL':1, 'GND':2, 'TWR':3, 'APP':4 };
-                    currentATC[icao].sort((a,b) => order[a.type] - order[b.type]).forEach(atc => {
-                        html += `<span class="atc-${atc.type.toLowerCase()}">${atc.type}</span> ${atc.freq}<br>`;
-                    });
-                    L.marker(coords, { icon: L.divIcon({ className: 'atc-tag', html: html, iconSize: [80, 'auto'] }), pane: 'atcPane' }).addTo(firLayer);
+                    currentATC[icao].sort((a,b) => order[a.type] - order[b.type]).forEach(atc => { html += `<span class="atc-${atc.type.toLowerCase()}">${atc.type}</span> ${atc.freq}<br>`; });
+                    L.marker([airportsDB[icao].lat, airportsDB[icao].lon], { icon: L.divIcon({ className: 'atc-tag', html: html, iconSize: [80, 'auto'] }), pane: 'atcPane' }).addTo(firLayer);
                 }
             });
         }
 
-        // --- 5. PROCESAR PILOTOS ---
         function processPilots(pilots) {
             const activeCallsigns = new Set();
             const activeAirports = new Set();
+            
             pilots.forEach(p => {
                 if (!p.latitude) return;
                 activeCallsigns.add(p.callsign);
+                
+                // GUARDAR HISTORIAL DE RUTA REAL (MEMORIA)
+                if (!historyCoords[p.callsign]) historyCoords[p.callsign] = [];
+                const lastPos = historyCoords[p.callsign][historyCoords[p.callsign].length - 1];
+                // Solo guardamos si se ha movido para ahorrar memoria
+                if (!lastPos || lastPos[0] !== p.latitude || lastPos[1] !== p.longitude) {
+                    historyCoords[p.callsign].push([p.latitude, p.longitude]);
+                    if (historyCoords[p.callsign].length > 300) historyCoords[p.callsign].shift(); // Máximo 300 puntos de estela por avión
+                }
+
                 if (p.flight_plan) {
                     if (p.flight_plan.departure) activeAirports.add(p.flight_plan.departure);
                     if (p.flight_plan.arrival) activeAirports.add(p.flight_plan.arrival);
                 }
-                const svgIcon = L.divIcon({
-                    className: '',
-                    html: `<svg width="20" height="20" style="transform: rotate(${p.heading}deg)">
-                            <path fill="#2c88ff" d="M21,16L22,13L15,11V4A2,2 0 0,0 13,2H11A2,2 0 0,0 9,4V11L2,13L3,16L10,14V19L8,21V22L11,21L14,22V21L12,19V14L21,16Z" transform="scale(0.6)"/>
-                           </svg>`,
-                    iconSize: [20, 20], iconAnchor: [10, 10]
-                });
+                const svgIcon = L.divIcon({ className: '', html: `<svg width="20" height="20" style="transform: rotate(${p.heading}deg)"><path fill="#2c88ff" d="M21,16L22,13L15,11V4A2,2 0 0,0 13,2H11A2,2 0 0,0 9,4V11L2,13L3,16L10,14V19L8,21V22L11,21L14,22V21L12,19V14L21,16Z" transform="scale(0.6)"/></svg>`, iconSize: [20, 20], iconAnchor: [10, 10] });
+                
                 if (markers[p.callsign]) {
                     markers[p.callsign].setLatLng([p.latitude, p.longitude]).setIcon(svgIcon);
                 } else {
@@ -274,40 +214,65 @@
                     markers[p.callsign] = m;
                 }
             });
-            Object.keys(markers).forEach(cs => {
-                if (!activeCallsigns.has(cs)) { aircraftLayer.removeLayer(markers[cs]); delete markers[cs]; }
-            });
+            Object.keys(markers).forEach(cs => { if (!activeCallsigns.has(cs)) { aircraftLayer.removeLayer(markers[cs]); delete markers[cs]; } });
+
             airportLayer.clearLayers();
             activeAirports.forEach(icao => {
                 if (airportsDB[icao]) {
-                    const m = L.marker([airportsDB[icao].lat, airportsDB[icao].lon], { icon: L.divIcon({ className: 'airport-icon' }) }).addTo(airportLayer);
+                    const m = L.marker([airportsDB[icao].lat, airportsDB[icao].lon], { icon: L.divIcon({ className: 'airport-label-icon', html: `<span>${icao}</span>`, iconSize: [42, 18] }) }).addTo(airportLayer);
                     m.on('click', () => openAirportPanel(icao));
                 }
             });
         }
 
-        // --- 6. PANELES INTERACTIVOS ---
-        function openPilotPanel(p) {
+        // CREADOR DE CURVAS GEODÉSICAS FUTURAS
+        function getCurvedPath(lat1, lon1, lat2, lon2) {
+            const offsetX = (lat2 - lat1) * 0.15; const offsetY = (lon2 - lon1) * 0.15;
+            const midLat = (lat1 + lat2) / 2 - offsetY; const midLon = (lon1 + lon2) / 2 + offsetX;
+            const path = [];
+            for (let t = 0; t <= 1; t += 0.05) path.push([(1 - t) * (1 - t) * lat1 + 2 * (1 - t) * t * midLat + t * t * lat2, (1 - t) * (1 - t) * lon1 + 2 * (1 - t) * t * midLon + t * t * lon2]);
+            return path;
+        }
+
+        async function openPilotPanel(p) {
             document.getElementById('info-panel').style.display = 'block';
             const { flightTime, eta } = calculateFlightData(p);
+            
             routeLayer.clearLayers();
-            if (p.flight_plan && airportsDB[p.flight_plan.arrival]) {
-                const arrCoords = [airportsDB[p.flight_plan.arrival].lat, airportsDB[p.flight_plan.arrival].lon];
-                L.polyline([[p.latitude, p.longitude], arrCoords], { color: '#b142f5', dashArray: '5,10', weight: 2 }).addTo(routeLayer);
+            
+            // 1. DIBUJAR ESTELA REAL VOLADA (La memoria del radar)
+            if (historyCoords[p.callsign] && historyCoords[p.callsign].length > 1) {
+                L.polyline(historyCoords[p.callsign], { color: '#00ffcc', weight: 3, opacity: 0.9 }).addTo(routeLayer);
             }
+
+            // 2. DIBUJAR PREVISIÓN AL DESTINO
+            if (p.flight_plan && p.flight_plan.departure && p.flight_plan.arrival && airportsDB[p.flight_plan.departure] && airportsDB[p.flight_plan.arrival]) {
+                const arrCoords = [airportsDB[p.flight_plan.arrival].lat, airportsDB[p.flight_plan.arrival].lon];
+                // Línea punteada desde la posición actual hasta el destino
+                L.polyline([[p.latitude, p.longitude], arrCoords], { color: '#ffffff', dashArray: '5,10', weight: 2, opacity: 0.5 }).addTo(routeLayer);
+            }
+
             document.getElementById('panel-content').innerHTML = `
                 <h1 class="title">${p.callsign}</h1>
-                <div class="subtitle">Piloto: ${p.name}</div>
+                <div class="subtitle">Piloto: ${p.name} | CID: ${p.cid}</div>
                 <div class="data-grid">
                     <div class="data-box"><div class="data-label">Salida</div><div class="data-value">${p.flight_plan?.departure || 'N/A'}</div></div>
                     <div class="data-box"><div class="data-label">Llegada</div><div class="data-value">${p.flight_plan?.arrival || 'N/A'}</div></div>
-                    <div class="data-box"><div class="data-label">Altitud</div><div class="data-value">${p.altitude} FT</div></div>
-                    <div class="data-box"><div class="data-label">Velocidad</div><div class="data-value">${p.groundspeed} KT</div></div>
-                    <div class="data-box"><div class="data-label">Tiempo Vuelo</div><div class="data-value text-cyan">${flightTime}</div></div>
+                    <div class="data-box"><div class="data-label">Altitud / Vel.</div><div class="data-value">${p.altitude}FT | ${p.groundspeed}KT</div></div>
+                    <div class="data-box"><div class="data-label">Horas (VATSIM)</div><div class="data-value text-cyan" id="pilot-total-hours">Buscando...</div></div>
+                    <div class="data-box"><div class="data-label">Vuelo Actual</div><div class="data-value text-cyan">${flightTime}</div></div>
                     <div class="data-box"><div class="data-label">ETA (ZULU)</div><div class="data-value text-orange">${eta}</div></div>
                 </div>
                 <div class="route-box">${p.flight_plan?.route || 'Ruta no disponible'}</div>
             `;
+
+            try {
+                const statsRes = await fetch(`https://api.vatsim.net/v2/members/${p.cid}/stats`);
+                if (statsRes.ok) {
+                    const statsData = await statsRes.json();
+                    document.getElementById('pilot-total-hours').innerText = statsData.pilot.toFixed(1) + ' hrs';
+                } else document.getElementById('pilot-total-hours').innerText = 'Privado';
+            } catch (e) { document.getElementById('pilot-total-hours').innerText = 'N/A'; }
         }
 
         function openAirportPanel(icao) {
@@ -318,12 +283,7 @@
             if (currentATC[icao] && currentATC[icao].length > 0) {
                 html += `<h3 style="color:#2c88ff; margin-top:10px; margin-bottom:10px; border-bottom:1px solid #333; padding-bottom:5px;">📡 CONTROLADORES ACTIVOS</h3>`;
                 const order = { 'DEL':1, 'GND':2, 'TWR':3, 'APP':4 };
-                currentATC[icao].sort((a,b) => order[a.type] - order[b.type]).forEach(atc => {
-                    html += `<div class="flight-list-item" style="font-size: 13px;">
-                                <span><span class="atc-${atc.type.toLowerCase()}">${atc.type}</span> <b>${atc.callsign}</b></span>
-                                <span class="text-cyan">${atc.freq}</span>
-                             </div>`;
-                });
+                currentATC[icao].sort((a,b) => order[a.type] - order[b.type]).forEach(atc => { html += `<div class="flight-list-item" style="font-size: 13px;"><span><span class="atc-${atc.type.toLowerCase()}">${atc.type}</span> <b>${atc.callsign}</b></span><span class="text-cyan">${atc.freq}</span></div>`; });
                 html += `<div style="margin-bottom:20px;"></div>`;
             }
             const deps = flightsData.filter(f => f.flight_plan?.departure === icao);
@@ -335,34 +295,20 @@
             document.getElementById('panel-content').innerHTML = html;
         }
 
-        // --- 7. MATEMÁTICAS ---
         function calculateFlightData(pilot) {
-            const logon = new Date(pilot.logon_time);
-            const now = new Date();
-            const diffMs = now - logon;
-            const hrs = Math.floor(diffMs / 3600000);
-            const mins = Math.floor((diffMs % 3600000) / 60000);
-            const flightTime = `${hrs}h ${mins}m`;
+            const logon = new Date(pilot.logon_time); const now = new Date(); const diffMs = now - logon;
+            const hrs = Math.floor(diffMs / 3600000); const mins = Math.floor((diffMs % 3600000) / 60000);
             let eta = "N/A";
             if (pilot.groundspeed > 50 && pilot.flight_plan && airportsDB[pilot.flight_plan.arrival]) {
                 const arrCoords = [airportsDB[pilot.flight_plan.arrival].lat, airportsDB[pilot.flight_plan.arrival].lon];
-                const distanceNM = map.distance([pilot.latitude, pilot.longitude], arrCoords) / 1852;
-                const hoursToDest = distanceNM / pilot.groundspeed;
-                const etaDate = new Date(now.getTime() + (hoursToDest * 3600000));
+                const etaDate = new Date(now.getTime() + ((map.distance([pilot.latitude, pilot.longitude], arrCoords) / 1852) / pilot.groundspeed) * 3600000);
                 eta = etaDate.toISOString().substring(11, 16) + 'Z';
             }
-            return { flightTime, eta };
+            return { flightTime: `${hrs}h ${mins}m`, eta };
         }
 
-        function closePanel() {
-            document.getElementById('info-panel').style.display = 'none';
-            routeLayer.clearLayers();
-        }
-
-        // --- ARRANCAR EL RADAR ---
+        function closePanel() { document.getElementById('info-panel').style.display = 'none'; routeLayer.clearLayers(); }
         loadStaticData();
-
     </script>
 </body>
-
 </html>
